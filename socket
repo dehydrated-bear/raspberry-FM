@@ -1,0 +1,48 @@
+import time
+from flask import Flask, render_template
+import paho.mqtt.client as mqtt
+
+# Flask app setup
+app = Flask(__name__)
+
+# MQTT Broker setup
+mqtt_broker = "5.196.78.28"  # MQTT Broker IP
+mqtt_port = 1883  # Default MQTT port
+mqtt_topic = "sensor/data"  # The topic to subscribe to
+
+# Global variables to store temperature and humidity
+temperature = None
+humidity = None
+
+# Callback when the MQTT client receives a message
+def on_message(client, userdata, msg):
+    global temperature, humidity
+    message = msg.payload.decode('utf-8')
+    # print(f"Received message: {message}")
+
+    # Assuming the message format is like "Temperature: 24.45°C, Humidity: 60.12%"
+    if "Temperature" in message and "Humidity" in message:
+        # Parse the message for temperature and humidity values
+        parts = message.split(",")
+        temperature = parts[0].split(":")[1].strip()
+        humidity = parts[1].split(":")[1].strip()
+
+# MQTT client setup
+client = mqtt.Client()
+client.on_message = on_message
+
+# Connect to the MQTT broker and subscribe to the topic
+def connect_mqtt():
+    client.connect(mqtt_broker, mqtt_port, 60)
+    client.subscribe(mqtt_topic)
+    client.loop_start()  # Start the MQTT loop in a background thread
+
+# Flask route for the homepage
+@app.route('/')
+def home():
+    return render_template('index.html', temperature=temperature, humidity=humidity)
+
+# Start the Flask application
+if __name__ == '__main__':
+    connect_mqtt()  # Connect to MQTT broker
+    app.run(debug=True)
