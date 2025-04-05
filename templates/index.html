@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Temperature and Humidity</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Chart.js CDN -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .data-container {
+            margin-top: 30px;
+            font-size: 1.5em;
+        }
+        .data {
+            margin: 10px 0;
+        }
+        .data span {
+            font-weight: bold;
+        }
+        #temperatureChart, #humidityChart {
+            width: 80%;
+            max-width: 600px;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Temperature and Humidity</h1>
+
+    <div class="data-container">
+        <div class="data">
+            <span>Temperature: </span><span id="temperature">Waiting for data...</span> °C
+        </div>
+        <div class="data">
+            <span>Humidity: </span><span id="humidity">Waiting for data...</span> %
+        </div>
+    </div>
+
+    <!-- Temperature Chart -->
+    <canvas id="temperatureChart"></canvas>
+    
+    <!-- Humidity Chart -->
+    <canvas id="humidityChart"></canvas>
+
+    <script>
+        // Create data storage arrays for charts
+let temperatureData = [];
+let humidityData = [];
+let timeStamps = [];
+let formattedTimeStamps = []; // New array to store the formatted time labels
+
+// Create the chart objects
+let temperatureChart = new Chart(document.getElementById('temperatureChart'), {
+    type: 'line',
+    data: {
+        labels: formattedTimeStamps, // Use the formatted time labels
+        datasets: [{
+            label: 'Temperature (°C)',
+            data: temperatureData,
+            borderColor: 'rgba(255, 99, 132, 1)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            x: { 
+                type: 'linear',
+                position: 'bottom',
+                title: {
+                    display: true,
+                    text: 'Time (s)'
+                },
+                ticks: {
+                    callback: function(value) {
+                        // Convert the time back to a readable format
+                        let date = new Date(value * 1000); // Convert seconds to milliseconds
+                        return date.toLocaleTimeString(); // Formats time like 'HH:MM:SS'
+                    }
+                }
+            },
+            y: {
+                title: {
+                    display: true,
+                    text: 'Temperature (°C)'
+                }
+            }
+        }
+    }
+});
+
+let humidityChart = new Chart(document.getElementById('humidityChart'), {
+    type: 'line',
+    data: {
+        labels: formattedTimeStamps, // Use the formatted time labels
+        datasets: [{
+            label: 'Humidity (%)',
+            data: humidityData,
+            borderColor: 'rgba(54, 162, 235, 1)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            x: { 
+                type: 'linear',
+                position: 'bottom',
+                title: {
+                    display: true,
+                    text: 'Time (s)'
+                },
+                ticks: {
+                    callback: function(value) {
+                        // Convert the time back to a readable format
+                        let date = new Date(value * 1000); // Convert seconds to milliseconds
+                        return date.toLocaleTimeString(); // Formats time like 'HH:MM:SS'
+                    }
+                }
+            },
+            y: {
+                title: {
+                    display: true,
+                    text: 'Humidity (%)'
+                }
+            }
+        }
+    }
+});
+
+// Connect to the WebSocket server (Flask-SocketIO)
+var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+// Listen for sensor data from the server
+socket.on('sensor_data', function(data) {
+    // Update the HTML elements with the received data
+    document.getElementById('temperature').textContent = data.temperature;
+    document.getElementById('humidity').textContent = data.humidity;
+
+    // Store the timestamp of the new data
+    let currentTime = new Date().getTime() / 1000;  // Timestamp in seconds
+    timeStamps.push(currentTime);
+
+    // Add the formatted timestamp for the x-axis labels
+    formattedTimeStamps.push(currentTime);
+
+    // Add the new data to the respective data arrays
+    temperatureData.push(parseFloat(data.temperature));
+    humidityData.push(parseFloat(data.humidity));
+
+    // Limit the arrays to the last 50 data points (for smooth chart)
+    if (timeStamps.length > 50) {
+        timeStamps.shift();
+        formattedTimeStamps.shift();
+        temperatureData.shift();
+        humidityData.shift();
+    }
+
+    // Update the charts with the new data
+    temperatureChart.update();
+    humidityChart.update();
+});
+
+    </script>
+</body>
+</html>
